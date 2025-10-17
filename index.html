@@ -1,44 +1,219 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Trivision TV - Fullscreen</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<style>
-  html, body { margin:0; padding:0; width:100%; height:100%; background:black; overflow:hidden; }
-  video { width:100%; height:100%; object-fit:cover; background:black; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Reproductor HLS - Trivision</title>
+
+  <!-- hls.js desde CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0/dist/hls.min.js"></script>
+
+  <style>
+    /* Estilo pensado para TV box / Android TV - botones grandes y foco visible */
+    html,body { height:100%; margin:0; background:#000; font-family: Arial, sans-serif; color:#fff; }
+    .player-wrap { position:relative; width:100%; height:100vh; display:flex; align-items:center; justify-content:center; background:#000; }
+    video#player { width:100%; height:100%; object-fit:cover; background:#000; outline:none; }
+    .controls {
+      position:absolute; left:0; right:0; bottom:24px; display:flex; gap:16px; justify-content:center; align-items:center;
+      pointer-events:auto;
+    }
+    .btn {
+      background: rgba(0,0,0,0.5);
+      border:2px solid rgba(255,255,255,0.12);
+      padding:14px 20px; border-radius:12px; font-size:18px; cursor:pointer;
+      color:#fff; min-width:88px; text-align:center;
+    }
+    .btn:focus { outline:3px solid #ffcc00; }
+    .status { position:absolute; left:16px; top:16px; background:rgba(0,0,0,0.4); padding:8px 12px; border-radius:8px; font-size:14px; }
+    .bigplay {
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none;
+      font-size:56px; background:rgba(0,0,0,0.45); padding:20px 28px; border-radius:16px; display:none;
+    }
+    .error { position:absolute; left:50%; top:40%; transform:translateX(-50%); background:#611; padding:16px 20px; border-radius:8px; }
+    /* Make focusable with remote */
+    .focusable { outline:none; }
+  </style>
 </head>
 <body>
+  <div class="player-wrap" id="wrap">
+    <div class="status" id="status">Cargando...</div>
 
-<video id="player" autoplay playsinline controls></video>
+    <video id="player" playsinline webkit-playsinline controls preload="metadata" tabindex="0"></video>
+
+    <div class="bigplay" id="bigplay">►</div>
+
+    <div class="controls" role="group" aria-label="Controles">
+      <button class="btn focusable" id="playBtn">Play / Pause</button>
+      <button class="btn focusable" id="muteBtn">Mute</button>
+      <button class="btn focusable" id="fsBtn">Pantalla completa</button>
+      <button class="btn focusable" id="retryBtn">Reintentar</button>
+    </div>
+
+    <div id="error" class="error" style="display:none;"></div>
+  </div>
 
 <script>
-const video = document.getElementById('player');
-// URL del proxy HLS en Netlify
-const streamURL = 'https://tu-app-netlify.netlify.app/.netlify/functions/proxy';
+(function(){
+  const HLS_URL = "https://liveingesta318.cdnmedia.tv:443/trivisionlive/rtmp01-1500/chunklist.m3u8?DVR";
+  const video = document.getElementById('player');
+  const status = document.getElementById('status');
+  const bigplay = document.getElementById('bigplay');
+  const errorBox = document.getElementById('error');
 
-function startHLS() {
-  if(Hls.isSupported()){
-    const hls = new Hls();
-    hls.loadSource(streamURL);
-    hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-    hls.on(Hls.Events.ERROR, (event, data) => {
-      if(data.fatal){
-        hls.destroy();
-        setTimeout(startHLS, 10000); // reconexión automática cada 10s
-      }
-    });
-  } else if(video.canPlayType('application/vnd.apple.mpegurl')){
-    video.src = streamURL;
-    video.addEventListener('loadedmetadata', ()=>video.play());
+  const playBtn = document.getElementById('playBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const fsBtn = document.getElementById('fsBtn');
+  const retryBtn = document.getElementById('retryBtn');
+
+  function setStatus(txt){
+    status.textContent = txt;
   }
-}
 
-startHLS();
+  function showError(txt){
+    errorBox.style.display = 'block';
+    errorBox.textContent = txt;
+    setStatus('Error');
+  }
+
+  function hideError(){
+    errorBox.style.display = 'none';
+  }
+
+  // Setup HLS playback
+  function initPlayer(){
+    hideError();
+    setStatus('Inicializando reproductor...');
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        maxBufferLength: 30,
+        enableWorker: true,
+        lowLatencyMode: false
+      });
+
+      hls.loadSource(HLS_URL);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, function() {
+        setStatus('Listo — presiona "Play" o usa el control remoto');
+        bigplay.style.display = 'block';
+        // Autoplay intent (may be blocked by browser policy)
+        // try to play, but respect promise
+        video.muted = true; // mute to increase autoplay chances
+        video.play().then(()=>{ bigplay.style.display='none'; }).catch(()=>{ /* esperar acción del usuario */ });
+      });
+
+      hls.on(Hls.Events.ERROR, function(event, data) {
+        console.warn('HLS error', data);
+        if (data.fatal) {
+          switch(data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              showError('Error de red. Intentando reconectar...');
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              showError('Error de reproducción media. Reintentando...');
+              hls.recoverMediaError();
+              break;
+            default:
+              showError('Error fatal del reproductor. Reintentando en 5s...');
+              setTimeout(()=>{ location.reload(); }, 5000);
+              break;
+          }
+        }
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari / iOS native HLS
+      video.src = HLS_URL;
+      video.addEventListener('loadedmetadata', function() {
+        setStatus('Listo — presiona Play');
+      });
+    } else {
+      showError('Su navegador no soporta HLS.n Recomendado usar WebView moderno o un navegador compatible.');
+    }
+
+    // Event listeners
+    video.addEventListener('playing', ()=>{ setStatus('Reproduciendo'); bigplay.style.display='none'; });
+    video.addEventListener('pause', ()=>{ setStatus('Pausado'); bigplay.style.display='block'; });
+    video.addEventListener('waiting', ()=>{ setStatus('Buffering...'); });
+    video.addEventListener('error', ()=>{ showError('Error al reproducir el stream (evento video).'); });
+  }
+
+  // Buttons
+  playBtn.addEventListener('click', ()=>{
+    if (video.paused) {
+      video.play().catch(err => { setStatus('Requiere interacción del usuario para reproducir'); });
+    } else {
+      video.pause();
+    }
+  });
+
+  muteBtn.addEventListener('click', ()=>{
+    video.muted = !video.muted;
+    muteBtn.textContent = video.muted ? 'Desmutear' : 'Mute';
+  });
+
+  fsBtn.addEventListener('click', ()=>{
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(()=>{ /* ignore */ });
+    } else {
+      document.exitFullscreen().catch(()=>{ /* ignore */ });
+    }
+  });
+
+  retryBtn.addEventListener('click', ()=>{
+    setStatus('Reintentando...');
+    hideError();
+    // recargar el video
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    initPlayer();
+  });
+
+  // Remote control friendly: teclas
+  document.addEventListener('keydown', function(e){
+    //console.log('key', e.keyCode);
+    switch(e.keyCode){
+      case 13: // Enter
+        playBtn.click();
+        break;
+      case 32: // Space
+        playBtn.click();
+        e.preventDefault();
+        break;
+      case 37: // Left arrow -> rewind 10s
+        video.currentTime = Math.max(0, video.currentTime - 10);
+        break;
+      case 39: // Right arrow -> forward 10s
+        video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 10);
+        break;
+      case 38: // Up -> volume up
+        video.volume = Math.min(1, (video.volume || 0.5) + 0.1);
+        break;
+      case 40: // Down -> volume down
+        video.volume = Math.max(0, (video.volume || 0.5) - 0.1);
+        break;
+      case 8: // Back (TV) - try to close or go back
+        // If appcreator supports a JS hook to close, call it here.
+        // Default: exit fullscreen
+        if (document.fullscreenElement) { document.exitFullscreen(); }
+        break;
+    }
+  });
+
+  // Focus first control so remote can navigate
+  window.addEventListener('load', function(){
+    // Try to focus play button for remote navigation
+    playBtn.focus();
+  });
+
+  // Init
+  initPlayer();
+
+  // Helpful note: expose status for debugging
+  window.__player_status = { setStatus };
+})();
 </script>
-
 </body>
 </html>
