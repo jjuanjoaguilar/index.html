@@ -1,32 +1,44 @@
-const fetch = require('node-fetch');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Trivision TV - Fullscreen</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+  html, body { margin:0; padding:0; width:100%; height:100%; background:black; overflow:hidden; }
+  video { width:100%; height:100%; object-fit:cover; background:black; }
+</style>
+</head>
+<body>
 
-exports.handler = async (event, context) => {
-  // URL del stream HLS (900 kbps)
-  const target = 'https://liveingesta318.cdnmedia.tv/trivisionlive/rtmp01-900/chunklist.m3u8?DVR';
+<video id="player" autoplay playsinline controls></video>
 
-  try {
-    const response = await fetch(target, {
-      headers: {
-        'Referer': 'https://trivisioncr.com/tv-en-vivo/', // simula que viene del sitio oficial
-        'Origin': 'https://trivisioncr.com',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+<script>
+const video = document.getElementById('player');
+// URL del proxy HLS en Netlify
+const streamURL = 'https://tu-app-netlify.netlify.app/.netlify/functions/proxy';
+
+function startHLS() {
+  if(Hls.isSupported()){
+    const hls = new Hls();
+    hls.loadSource(streamURL);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      if(data.fatal){
+        hls.destroy();
+        setTimeout(startHLS, 10000); // reconexión automática cada 10s
       }
     });
-    const body = await response.text();
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/vnd.apple.mpegurl',
-        'Access-Control-Allow-Origin': '*', // para que WebView / HLS.js funcione
-      },
-      body,
-    };
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: 'Error fetching stream: ' + error.message,
-    };
+  } else if(video.canPlayType('application/vnd.apple.mpegurl')){
+    video.src = streamURL;
+    video.addEventListener('loadedmetadata', ()=>video.play());
   }
-};
+}
 
+startHLS();
+</script>
+
+</body>
+</html>
