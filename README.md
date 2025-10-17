@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ en ispeccionar de la pagina oficial del canal este es el codigo <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
