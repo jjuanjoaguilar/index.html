@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Trivision TV - Embed</title>
+<title>Trivision TV - Live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body { margin:0; overflow:hidden; background:black; font-family: Arial, sans-serif; }
@@ -21,41 +21,5 @@ iframe { width:100vw; height:100vh; border:none; }
 .title { color:white; font-size:18px; font-weight:bold; }
 .status {
   position:fixed; bottom:50px; left:50%; transform:translateX(-50%);
-  color:white; background:rgba(0,0,0,0.6); padding:5px 10px; border-radius:5px; font-weight:bold; z-index:10;
-}
-.button-reconnect {
-  position:fixed; top:60px; right:10px; z-index:10;
-  padding:5px 10px; font-size:14px; font-weight:bold; border:none; border-radius:4px;
-  background:#ffcc00; color:black; cursor:pointer;
-}
-</style>
-</head>
-<body>
+  color:white; background:rgb
 
-<div class="topbar">
-  <div class="logo">TV</div>
-  <div class="title">Trivision</div>
-</div>
-
-<iframe id="player" src="https://instantvideocloud.net/embed/tu_canal_id" allowfullscreen allow="autoplay; fullscreen"></iframe>
-<div class="status" id="status">Cargando...</div>
-<button class="button-reconnect" id="btnReconnect">Reconectar</button>
-
-<script>
-const status = document.getElementById('status');
-const iframe = document.getElementById('player');
-
-function setStatus(text){ status.textContent = text; }
-
-// Intentar detectar si el iframe carga correctamente
-iframe.onload = ()=>{ setStatus('Reproduciendo'); };
-
-// Reconectar
-document.getElementById('btnReconnect').addEventListener('click', ()=>{
-  setStatus('Reconectando...');
-  iframe.src = iframe.src;
-});
-</script>
-
-</body>
-</html>
