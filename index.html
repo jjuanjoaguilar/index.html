@@ -1,71 +1,14 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trivision TV - Fullscreen</title>
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    width: 100%;
-    background: black;
-    overflow: hidden;
-    font-family: Arial, sans-serif;
-  }
-  #playerWrapper {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    background: black;
-  }
-  iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
-  }
-  /* Mensaje de carga */
-  #loader {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    text-align: center;
-    z-index: 10;
-    font-size: 18px;
-  }
-</style>
-</head>
-<body>
+// proxy-hls.js
+const express = require('express');
+const request = require('request');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-<div id="playerWrapper">
-  <div id="loader">Cargando Trivision…</div>
-  <iframe id="player" src="https://trivisioncr.com/tv-en-vivo/" allowfullscreen allow="autoplay; fullscreen"></iframe>
-</div>
+app.get('/stream.m3u8', (req, res) => {
+  const url = 'https://liveingesta318.cdnmedia.tv/trivisionlive/rtmp01-900/chunklist.m3u8?DVR';
+  req.pipe(request(url)).pipe(res);
+});
 
-<script>
-const iframe = document.getElementById('player');
-const loader = document.getElementById('loader');
-
-// Intentar fullscreen automático
-function goFullscreen(element){
-  if(element.requestFullscreen) element.requestFullscreen().catch(()=>{});
-  else if(element.webkitRequestFullscreen) element.webkitRequestFullscreen();
-  else if(element.msRequestFullscreen) element.msRequestFullscreen();
-}
-
-// Ocultar loader cuando el iframe cargue
-iframe.onload = () => {
-  loader.style.display = 'none';
-  goFullscreen(document.documentElement); // fullscreen de todo el documento
-};
-
-// Reintentar fullscreen si el usuario toca pantalla
-document.body.addEventListener('click', ()=>{ goFullscreen(document.documentElement); });
-</script>
-
-</body>
-</html>
+app.listen(PORT, () => {
+  console.log(`Proxy HLS corriendo en http://localhost:${PORT}`);
+});
