@@ -6,12 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { margin: 0; overflow: hidden; background: black; font-family: Arial, sans-serif; }
-    video {
-      position: fixed; top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      object-fit: cover; background: black;
-    }
-    /* Barra superior tipo canal */
+    video { width: 100vw; height: 100vh; object-fit: cover; background: black; }
     .topbar {
       position: fixed; top: 0; left: 0; width: 100%;
       height: 50px; background: rgba(0,0,0,0.5); display: flex;
@@ -47,14 +42,14 @@
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.muted = false; // intenta activar sonido
+        video.muted = false;
         video.play().catch(()=>{ video.muted = true; video.play(); });
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
           hls.destroy();
-          setTimeout(startPlayer, 3000); // reconexión automática
+          setTimeout(startPlayer, 3000);
         }
       });
 
@@ -68,3 +63,4 @@
 
 </body>
 </html>
+
