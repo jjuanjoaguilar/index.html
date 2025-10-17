@@ -2,110 +2,37 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Trivision TV - TV Box Remote</title>
+<title>Trivision TV - Fullscreen</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body { margin:0; overflow:hidden; background:black; font-family: Arial, sans-serif; }
-iframe { width:100vw; height:100vh; border:none; }
-
-.topbar {
-  position:fixed; top:0; left:0; width:100%; height:60px;
-  background: rgba(0,0,0,0.6); display:flex; align-items:center; padding:0 16px; box-sizing:border-box; z-index:10;
-}
-.logo {
-  width:50px; height:50px; background:#ffcc00; border-radius:6px;
-  display:flex; align-items:center; justify-content:center;
-  font-weight:bold; color:black; font-size:18px; margin-right:12px;
-  opacity:0.85; animation: pulse 2s infinite;
-}
-@keyframes pulse {0%,100%{opacity:0.85;}50%{opacity:1;}}
-.title { color:white; font-size:20px; font-weight:bold; }
-
-.status {
-  position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
-  color:white; background:rgba(0,0,0,0.7); padding:8px 14px; border-radius:6px; font-weight:bold; z-index:10;
-  transition: opacity 0.5s;
-}
-
-.button-reconnect, .button-quality {
-  position:fixed; z-index:10;
-  padding:16px 20px; font-size:20px; font-weight:bold; border:none; border-radius:8px;
-  background:#ffcc00; color:black; cursor:pointer;
-}
-
-.button-reconnect { top:70px; right:16px; }
-.button-quality { top:70px; left:16px; }
-
-.select-quality {
-  display:none; /* ocultamos select visual, usamos botones grandes */
-}
+iframe { width:100%; height:100%; border:none; display:block; }
+.topbar, .status, .button-reconnect, .button-quality { display:none; } /* ocultamos todo para fullscreen */
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="logo">TV</div>
-  <div class="title">Trivision</div>
-</div>
-
 <iframe id="player" src="https://trivisioncr.com/tv-en-vivo/" allowfullscreen allow="autoplay; fullscreen"></iframe>
 
-<div class="status" id="status">Cargando...</div>
-
-<!-- Botones grandes tipo TV Box -->
-<button class="button-reconnect" id="btnReconnect">🔄 Reconectar</button>
-<button class="button-quality" id="btnQuality">📺 Auto</button>
-
 <script>
-const status = document.getElementById('status');
 const iframe = document.getElementById('player');
-const btnReconnect = document.getElementById('btnReconnect');
-const btnQuality = document.getElementById('btnQuality');
 
-let currentQuality = "auto";
-const qualities = ["auto", "360", "1080"];
-let qualityIndex = 0;
-
-// Función para actualizar estado
-function setStatus(text){
-  status.textContent = text;
-  status.style.opacity = 1;
-  clearTimeout(status.hideTimeout);
-  status.hideTimeout = setTimeout(()=>{ status.style.opacity = 0; }, 5000);
+function goFullscreen(element){
+    if(element.requestFullscreen){
+        element.requestFullscreen();
+    } else if(element.webkitRequestFullscreen){
+        element.webkitRequestFullscreen();
+    } else if(element.msRequestFullscreen){
+        element.msRequestFullscreen();
+    }
 }
 
-// Función para cargar el iframe según calidad
-function loadPlayer(){
-  setStatus('Cargando...');
-  let url = "https://trivisioncr.com/tv-en-vivo/";
-  if(currentQuality === "360") url += "?quality=360";
-  else if(currentQuality === "1080") url += "?quality=1080";
-  // Auto usa URL original
-  iframe.src = url;
-}
-
-// Detectar carga del iframe
-iframe.onload = ()=>{ setStatus('Reproduciendo'); };
-
-// Reconexión automática cada 30s si sigue cargando
-setInterval(()=>{
-  if(status.textContent === "Cargando...") loadPlayer();
-}, 30000);
-
-// Reconexión manual
-btnReconnect.addEventListener('click', ()=>{ loadPlayer(); });
-
-// Cambiar calidad con el botón grande
-btnQuality.addEventListener('click', ()=>{
-  qualityIndex = (qualityIndex + 1) % qualities.length;
-  currentQuality = qualities[qualityIndex];
-  btnQuality.textContent = currentQuality === "auto" ? "📺 Auto" : `📺 ${currentQuality}p`;
-  loadPlayer();
-});
-
-// Carga inicial
-loadPlayer();
+// Intentar abrir fullscreen al cargar
+window.onload = ()=>{
+    goFullscreen(document.documentElement); // pantalla completa de todo el documento
+};
 </script>
 
 </body>
 </html>
+
