@@ -1,205 +1,71 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>Trivision - TV Pro</title>
-
-<!-- Estilos: fondo oscuro + mensaje de carga; todo pensado para TV Box -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trivision TV - Fullscreen</title>
 <style>
-  :root{ --accent:#ffcc00; --bg:#000; --panel:rgba(0,0,0,0.6); }
-  html,body{height:100%;margin:0;background:var(--bg);font-family:Arial,Helvetica,sans-serif;color:#fff}
-  #wrap{position:relative;width:100%;height:100vh;overflow:hidden;background:#000}
-  video#player{width:100vw;height:100vh;object-fit:cover;background:#000;display:block;border:0}
-  /* Estado de carga centrado */
-  .loader {
-    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;
-    background:transparent;padding:12px;border-radius:8px;z-index:20;
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    background: black;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
   }
-  .loader .title{font-size:20px;font-weight:700;margin-bottom:8px}
-  .loader .sub{font-size:14px;opacity:0.9}
-  /* overlay para logo sutil mientras carga */
-  .logo {
-    position: absolute; left: 20px; top: 14px; z-index:30;
-    width:60px;height:60px;border-radius:8px;background:var(--accent);
-    display:flex;align-items:center;justify-content:center;color:#000;font-weight:800;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  #playerWrapper {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    background: black;
   }
-  /* status pequeño inferior (opcional) */
-  .status {
-    position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
-    background:var(--panel); padding:8px 12px; border-radius:8px; font-weight:600;
-    z-index:25; font-size:13px;
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
   }
-  /* esconder foco visual y controles del video (modo TV) */
-  video::-webkit-media-controls { display:none !important; }
-  video[controls] { -webkit-appearance:none; outline:none; }
+  /* Mensaje de carga */
+  #loader {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    text-align: center;
+    z-index: 10;
+    font-size: 18px;
+  }
 </style>
-
-<!-- hls.js -->
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 <body>
-  <div id="wrap">
-    <div class="logo">TV</div>
 
-    <!-- Video element (sin controls visibles) -->
-    <video id="player" playsinline webkit-playsinline muted></video>
-
-    <!-- Mensaje de carga (estilo B solicitado) -->
-    <div class="loader" id="loader">
-      <div class="title">Cargando Trivision…</div>
-      <div class="sub">Por favor espera — se reproduce en pantalla completa</div>
-    </div>
-
-    <div class="status" id="status" aria-live="polite">Conectando...</div>
-  </div>
+<div id="playerWrapper">
+  <div id="loader">Cargando Trivision…</div>
+  <iframe id="player" src="https://trivisioncr.com/tv-en-vivo/" allowfullscreen allow="autoplay; fullscreen"></iframe>
+</div>
 
 <script>
-/*
-  Configuración elegida:
-  - Estilo TV Pro, sin controles visibles
-  - Calidad automática (HLS auto)
-  - Reconexión automática cada 10 segundos
-  - URL base elegida: rtmp01-900 (opción 2)
-*/
-(function(){
-  const PLAYER_URL = "https://liveingesta318.cdnmedia.tv/trivisionlive/rtmp01-900/chunklist.m3u8?DVR";
-  const RECONNECT_INTERVAL_MS = 10000; // 10s
-  const video = document.getElementById('player');
-  const loader = document.getElementById('loader');
-  const statusEl = document.getElementById('status');
+const iframe = document.getElementById('player');
+const loader = document.getElementById('loader');
 
-  let hls = null;
-  let reconnectTimer = null;
-  let isManualStop = false;
+// Intentar fullscreen automático
+function goFullscreen(element){
+  if(element.requestFullscreen) element.requestFullscreen().catch(()=>{});
+  else if(element.webkitRequestFullscreen) element.webkitRequestFullscreen();
+  else if(element.msRequestFullscreen) element.msRequestFullscreen();
+}
 
-  function setStatus(text){
-    statusEl.textContent = text;
-  }
+// Ocultar loader cuando el iframe cargue
+iframe.onload = () => {
+  loader.style.display = 'none';
+  goFullscreen(document.documentElement); // fullscreen de todo el documento
+};
 
-  function showLoader(){
-    loader.style.display = 'block';
-    setStatus('Conectando...');
-  }
-  function hideLoader(){
-    loader.style.display = 'none';
-    setStatus('Reproduciendo');
-  }
-
-  function attemptFullscreen(){
-    try{
-      const el = document.documentElement;
-      if (el.requestFullscreen) el.requestFullscreen().catch(()=>{});
-      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      else if (el.msRequestFullscreen) el.msRequestFullscreen();
-    }catch(e){}
-  }
-
-  function destroyHls(){
-    if(hls){
-      try{ hls.destroy(); }catch(e){}
-      hls = null;
-    }
-    try{ video.removeAttribute('src'); video.load(); }catch(e){}
-  }
-
-  function startPlayer(){
-    showLoader();
-    isManualStop = false;
-    destroyHls();
-
-    // Intentamos forzar fullscreen (algunos TV box lo permiten)
-    attemptFullscreen();
-
-    if (window.Hls && Hls.isSupported()) {
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false,
-        autoStartLoad: true,
-      });
-
-      hls.loadSource(PLAYER_URL);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, function() {
-        // intentar autoplay (muted primero para sortear políticas)
-        video.muted = true;
-        video.play().then(()=>{ video.muted = false; }).catch(()=>{ /* si falla, queda en muted */ });
-        hideLoader();
-        clearReconnectTimer();
-      });
-
-      hls.on(Hls.Events.ERROR, function(event, data) {
-        console.warn('HLS error', data);
-        if (data && data.fatal) {
-          // si hay error fatal intentamos reconectar periódicamente
-          setStatus('Error en reproducción — reconectando...');
-          destroyHls();
-          scheduleReconnect();
-        } else {
-          // warning
-          setStatus('Advertencia: ' + (data && data.details ? data.details : 'problema'));
-        }
-      });
-
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari / WebView con HLS nativo
-      video.src = PLAYER_URL;
-      video.addEventListener('loadedmetadata', function() {
-        video.play().catch(()=>{});
-        hideLoader();
-        clearReconnectTimer();
-      });
-      video.addEventListener('error', function(){ 
-        setStatus('Error de reproducción nativa — reconectando...');
-        scheduleReconnect();
-      });
-    } else {
-      // No compatible
-      setStatus('Tu dispositivo no soporta reproducción HLS en este WebView');
-      // seguir intentando de forma conservadora
-      scheduleReconnect();
-    }
-  }
-
-  function scheduleReconnect(){
-    clearReconnectTimer();
-    reconnectTimer = setTimeout(()=> {
-      if (!isManualStop) startPlayer();
-    }, RECONNECT_INTERVAL_MS);
-  }
-
-  function clearReconnectTimer(){
-    if(reconnectTimer){ clearTimeout(reconnectTimer); reconnectTimer = null; }
-  }
-
-  // manejar eventos del elemento video para detectar stalls/errores
-  video.addEventListener('waiting', ()=>{ setStatus('Buffering...'); });
-  video.addEventListener('playing', ()=>{ setStatus('Reproduciendo'); hideLoader(); clearReconnectTimer(); });
-  video.addEventListener('stalled', ()=>{ setStatus('Stalled — reconectando...'); scheduleReconnect(); });
-  video.addEventListener('error', ()=>{ setStatus('Error de elemento video — reconectando...'); scheduleReconnect(); });
-
-  // tecla Back/escape o pausa manual (opcional)
-  document.addEventListener('keydown', (e)=>{
-    // tecla Back/Escape -> salir fullscreen
-    if(e.key === 'Escape' || e.keyCode === 8){
-      try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
-    }
-    // Si presionan Enter o Space, intentar play/pause (aunque estamos en modo sin controles)
-    if(e.key === ' ' || e.keyCode === 32 || e.key === 'Enter' || e.keyCode === 13){
-      if (video.paused){ video.play().catch(()=>{}); } else { video.pause(); }
-    }
-  });
-
-  // iniciar
-  showLoader();
-  // breve delay para asegurar que WebView inicialice
-  setTimeout(startPlayer, 300);
-
-  // Exponer funciones para debugging (opcional)
-  window.__tvplayer = { startPlayer, destroyHls, scheduleReconnect, setStatus };
-})();
+// Reintentar fullscreen si el usuario toca pantalla
+document.body.addEventListener('click', ()=>{ goFullscreen(document.documentElement); });
 </script>
+
 </body>
 </html>
