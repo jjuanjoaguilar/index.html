@@ -68,11 +68,3 @@
 
 </body>
 </html>
-
-
-  startPlayer();
-</script>
-
-</body>
-</html>
- index.html
